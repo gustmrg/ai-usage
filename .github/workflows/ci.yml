@@ -18,6 +18,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: test -z "$(gofmt -l .)"
+      - run: sh -n install.sh
       - run: go vet ./...
       - run: go test ./...
       - run: CGO_ENABLED=0 go build ./cmd/ai-usage
