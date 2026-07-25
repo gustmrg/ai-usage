@@ -86,4 +86,4 @@ Linux:   ~/.cache/ai-usage/<provider>/<account-fingerprint>.json
 Windows: %LocalAppData%/ai-usage/<provider>/<account-fingerprint>.json
 ```
 
-The fingerprint is a one-way hash of the active account or API credential, so changing accounts can never return another account's cached usage. Normal reads reuse snapshots for five minutes. If a refresh fails, a successful snapshot up to 24 hours old can be shown as stale. Failed or malformed responses never replace the last-known-good snapshot.
+The fingerprint is a one-way hash of the active account or API credential, so changing accounts can never return another account's cached usage. Normal reads reuse snapshots for five minutes. If a refresh fails, most providers can show a successful snapshot up to 24 hours old as stale. OpenCode Go reports the console error without stale usage because its quota must remain server-authoritative. Failed or malformed responses never replace the last-known-good snapshot.

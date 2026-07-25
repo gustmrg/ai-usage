@@ -27,6 +27,10 @@ type Service struct {
 	cache     *cache.Cache
 }
 
+type staleCachePolicy interface {
+	AllowStaleCache() bool
+}
+
 func NewService(cacheStore *cache.Cache, providers ...provider.Provider) *Service {
 	return &Service{providers: providers, cache: cacheStore}
 }
@@ -102,6 +106,9 @@ func (s *Service) Fetch(ctx context.Context, id string, force bool) Result {
 }
 
 func (s *Service) fallback(id, cacheKey string, fetchErr error) Result {
+	if policy, ok := s.Provider(id).(staleCachePolicy); ok && !policy.AllowStaleCache() {
+		return Result{Err: fetchErr}
+	}
 	snapshot, ok, cacheErr := s.cache.Read(id, cacheKey, MaxStale)
 	if cacheErr == nil && ok {
 		snapshot.Stale = true

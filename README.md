@@ -12,7 +12,7 @@
 - Depleting quota bars labeled with the percentage left.
 - Reuses the credentials created by `codex login`.
 - Reuses the subscription OAuth credentials created by `kimi login`.
-- Tracks OpenCode Go via the opencode.ai console or the local opencode database.
+- Tracks OpenCode Go through its server-authoritative opencode.ai console data.
 - Five-minute request cache with last-known-good fallback.
 - Concurrent, non-blocking provider refreshes in the TUI.
 - One statically linked Go binary for macOS, Linux, and Windows.
@@ -32,7 +32,7 @@ Authenticate at least one provider (details in [docs/authentication.md](docs/aut
 ```bash
 codex login    # Codex/ChatGPT
 kimi login     # Kimi Code
-               # OpenCode Go works out of the box via the local opencode database
+               # Set OPENCODE_AUTH_COOKIE for OpenCode Go
 ```
 
 Then open the dashboard:

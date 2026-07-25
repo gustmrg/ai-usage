@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gustmrg/ai-usage/internal/provider"
 )
 
 const usagePageFixture = `<!DOCTYPE html>
@@ -109,7 +111,7 @@ func TestNormalizeWorkspaceID(t *testing.T) {
 func TestFetchRPC(t *testing.T) {
 	var sawWorkspaceRequest, sawUsageRequest bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Cookie") != "session=abc" {
+		if r.Header.Get("Cookie") != "auth=abc" {
 			t.Errorf("missing cookie header on %s", r.URL.Path)
 		}
 		switch {
@@ -131,9 +133,9 @@ func TestFetchRPC(t *testing.T) {
 	}))
 	defer server.Close()
 
-	t.Setenv("OPENCODE_SESSION_COOKIE", "session=abc")
+	t.Setenv("OPENCODE_AUTH_COOKIE", "abc")
+	t.Setenv("OPENCODE_SESSION_COOKIE", "")
 	t.Setenv("OPENCODE_WORKSPACE_ID", "")
-	t.Setenv("OPENCODE_DATA_DIR", t.TempDir())
 
 	client := New(server.Client())
 	client.BaseURL = server.URL
@@ -164,7 +166,8 @@ func TestFetchRPCWorkspaceOverride(t *testing.T) {
 	}))
 	defer server.Close()
 
-	t.Setenv("OPENCODE_SESSION_COOKIE", "session=abc")
+	t.Setenv("OPENCODE_AUTH_COOKIE", "abc")
+	t.Setenv("OPENCODE_SESSION_COOKIE", "")
 	t.Setenv("OPENCODE_WORKSPACE_ID", "wrk_override")
 
 	client := New(server.Client())
@@ -180,13 +183,106 @@ func TestFetchRPCSignedOut(t *testing.T) {
 	}))
 	defer server.Close()
 
-	t.Setenv("OPENCODE_SESSION_COOKIE", "session=expired")
-	t.Setenv("OPENCODE_DATA_DIR", t.TempDir())
+	t.Setenv("OPENCODE_AUTH_COOKIE", "expired")
+	t.Setenv("OPENCODE_SESSION_COOKIE", "")
 
 	client := New(server.Client())
 	client.BaseURL = server.URL
 	_, err := client.Fetch(context.Background(), mustCacheKey(t, client))
 	if err == nil || !strings.Contains(err.Error(), "invalid or expired") {
+		t.Fatalf("expected credentials error, got %v", err)
+	}
+}
+
+func TestDetectWithoutCookie(t *testing.T) {
+	t.Setenv("OPENCODE_AUTH_COOKIE", "")
+	t.Setenv("OPENCODE_SESSION_COOKIE", "")
+	client := New(nil)
+	detection := client.Detect()
+	if detection.Available {
+		t.Fatal("expected provider to be unavailable without a session cookie")
+	}
+	if detection.Detail != "set OPENCODE_AUTH_COOKIE" {
+		t.Fatalf("unexpected setup detail: %q", detection.Detail)
+	}
+}
+
+func TestCacheKeyWithoutCookie(t *testing.T) {
+	t.Setenv("OPENCODE_AUTH_COOKIE", "")
+	t.Setenv("OPENCODE_SESSION_COOKIE", "")
+	client := New(nil)
+	if _, err := client.CacheKey(); err == nil || !strings.Contains(err.Error(), "set OPENCODE_AUTH_COOKIE") {
+		t.Fatalf("expected missing-cookie error, got %v", err)
+	}
+}
+
+func TestCacheKeyDoesNotReuseLegacyCookieSnapshots(t *testing.T) {
+	t.Setenv("OPENCODE_AUTH_COOKIE", "abc")
+	t.Setenv("OPENCODE_SESSION_COOKIE", "")
+	client := New(nil)
+	key, err := client.CacheKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyKey := provider.CacheFingerprint("cookie:session=abc")
+	if key == legacyKey {
+		t.Fatal("console cache key must not reuse legacy local-fallback snapshots")
+	}
+}
+
+func TestCookieHeader(t *testing.T) {
+	tests := []struct {
+		name       string
+		auth       string
+		session    string
+		wantHeader string
+		wantSource string
+		wantError  string
+	}{
+		{name: "auth value", auth: "secret", wantHeader: "auth=secret", wantSource: "OPENCODE_AUTH_COOKIE"},
+		{name: "auth pair", auth: "auth=secret", wantHeader: "auth=secret", wantSource: "OPENCODE_AUTH_COOKIE"},
+		{name: "legacy raw value", session: "secret", wantHeader: "auth=secret", wantSource: "OPENCODE_SESSION_COOKIE"},
+		{name: "legacy auth pair", session: "auth=secret", wantHeader: "auth=secret", wantSource: "OPENCODE_SESSION_COOKIE"},
+		{name: "legacy full header", session: "other=1; auth=secret; theme=dark", wantHeader: "auth=secret", wantSource: "OPENCODE_SESSION_COOKIE"},
+		{name: "legacy header label", session: "Cookie: auth=secret", wantHeader: "auth=secret", wantSource: "OPENCODE_SESSION_COOKIE"},
+		{name: "missing auth", session: "other=1; theme=dark", wantError: "does not contain"},
+		{name: "line break", auth: "secret\ninjected=1", wantError: "line break"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("OPENCODE_AUTH_COOKIE", tc.auth)
+			t.Setenv("OPENCODE_SESSION_COOKIE", tc.session)
+			header, source, err := cookieHeader()
+			if tc.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+					t.Fatalf("error = %v, want containing %q", err, tc.wantError)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if header != tc.wantHeader || source != tc.wantSource {
+				t.Fatalf("cookieHeader() = %q, %q; want %q, %q", header, source, tc.wantHeader, tc.wantSource)
+			}
+		})
+	}
+}
+
+func TestFetchRPCAuthRedirect(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://auth.example.test/login", http.StatusFound)
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENCODE_AUTH_COOKIE", "expired")
+	t.Setenv("OPENCODE_SESSION_COOKIE", "")
+	t.Setenv("OPENCODE_WORKSPACE_ID", "wrk_test")
+
+	client := New(server.Client())
+	client.BaseURL = server.URL
+	_, err := client.Fetch(context.Background(), mustCacheKey(t, client))
+	if err == nil || provider.Kind(err) != provider.ErrorCredentials {
 		t.Fatalf("expected credentials error, got %v", err)
 	}
 }

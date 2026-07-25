@@ -20,8 +20,8 @@ import (
 const (
 	defaultBaseURL = "https://opencode.ai"
 	// workspacesServerID is the build hash of the Solid Start server
-	// function that lists workspaces (same one CodexBar uses). It can
-	// rotate on console deploys; the local database fallback covers that.
+	// function that lists workspaces (same one CodexBar uses). It can rotate
+	// on console deploys, in which case the provider reports schema drift.
 	workspacesServerID = "def39973159c7f0483d8793a822b8dbb10d067e12c65455fcb4608459ba0234f"
 	userAgent          = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 )
@@ -166,7 +166,10 @@ func (c *Client) doText(req *http.Request) (string, error) {
 	}
 	text := string(body)
 	if response.StatusCode != http.StatusOK {
-		if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden || looksSignedOut(text) {
+		if response.StatusCode == http.StatusUnauthorized ||
+			response.StatusCode == http.StatusForbidden ||
+			(response.StatusCode >= 300 && response.StatusCode < 400) ||
+			looksSignedOut(text) {
 			return "", &provider.Error{Kind: provider.ErrorCredentials, Provider: c.ID(), StatusCode: response.StatusCode, Message: "OpenCode session cookie is invalid or expired"}
 		}
 		return "", &provider.Error{Kind: provider.ErrorHTTP, Provider: c.ID(), StatusCode: response.StatusCode, Message: fmt.Sprintf("OpenCode console returned HTTP %d", response.StatusCode)}

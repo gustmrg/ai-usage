@@ -16,6 +16,12 @@ type fakeProvider struct {
 	err     error
 }
 
+type noStaleProvider struct {
+	*fakeProvider
+}
+
+func (*noStaleProvider) AllowStaleCache() bool { return false }
+
 func (p *fakeProvider) ID() string                { return "fake" }
 func (p *fakeProvider) DisplayName() string       { return "Fake" }
 func (p *fakeProvider) CacheKey() (string, error) { return "account", nil }
@@ -56,5 +62,18 @@ func TestFetchReturnsStaleSnapshotOnProviderFailure(t *testing.T) {
 	result := service.Fetch(context.Background(), "fake", true)
 	if result.Err == nil || !result.Snapshot.Stale {
 		t.Fatalf("result = %#v, want stale snapshot and error", result)
+	}
+}
+
+func TestFetchCanDisableStaleSnapshotOnProviderFailure(t *testing.T) {
+	p := &noStaleProvider{fakeProvider: &fakeProvider{}}
+	service := NewService(cache.At(t.TempDir()), p)
+	if result := service.Fetch(context.Background(), "fake", false); result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	p.err = errors.New("offline")
+	result := service.Fetch(context.Background(), "fake", true)
+	if result.Err == nil || !result.Snapshot.CollectedAt.IsZero() {
+		t.Fatalf("result = %#v, want error without stale snapshot", result)
 	}
 }

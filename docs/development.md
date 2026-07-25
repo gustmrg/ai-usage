@@ -14,11 +14,11 @@ All current usage integrations rely on endpoints used by provider tooling but no
 
 - Codex: `https://chatgpt.com/backend-api/wham/usage`
 - Kimi: `https://api.kimi.com/coding/v1/usages`
-- OpenCode Go: `https://opencode.ai/_server` and `https://opencode.ai/workspace/<id>/go`, with opencode's local SQLite database as fallback
+- OpenCode Go: `https://opencode.ai/_server` and `https://opencode.ai/workspace/<id>/go`
 
 The clients validate response shapes, cap response bodies, and report schema drift instead of converting unknown responses into zero usage. Fixture tests cover normal, weekly-only, reordered, aliased, malformed, and large-counter responses.
 
-The OpenCode Go console server-function id is a build hash that can rotate on console deploys; the local database fallback keeps the provider working when that happens.
+The OpenCode Go console server-function id is a build hash that can rotate on console deploys. If it changes, the provider reports schema drift instead of displaying estimated usage.
 
 ## Scope
 

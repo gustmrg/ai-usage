@@ -86,7 +86,7 @@ func printStatus(ctx context.Context, service *app.Service, output io.Writer, pr
 		}
 	}
 	if len(results) == 0 {
-		return fmt.Errorf("no providers configured; run `codex login`, set KIMI_API_KEY, or set OPENCODE_SESSION_COOKIE")
+		return fmt.Errorf("no providers configured; run `codex login`, set KIMI_API_KEY, or set OPENCODE_AUTH_COOKIE")
 	}
 
 	report := model.Report{SchemaVersion: model.SchemaVersion, GeneratedAt: time.Now().UTC(), Providers: []model.Snapshot{}, Errors: []model.ProviderError{}}
