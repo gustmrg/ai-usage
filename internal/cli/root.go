@@ -53,7 +53,7 @@ func newStatusCommand(service *app.Service) *cobra.Command {
 	command := &cobra.Command{Use: "status", Short: "Print current provider usage", RunE: func(cmd *cobra.Command, args []string) error {
 		return printStatus(cmd.Context(), service, cmd.OutOrStdout(), providerID, jsonOutput, false)
 	}}
-	command.Flags().StringVarP(&providerID, "provider", "p", "", "provider to query: codex or kimi")
+	command.Flags().StringVarP(&providerID, "provider", "p", "", "provider to query: codex, kimi or opencodego")
 	command.Flags().BoolVar(&jsonOutput, "json", false, "print versioned JSON")
 	return command
 }
@@ -64,7 +64,7 @@ func newRefreshCommand(service *app.Service) *cobra.Command {
 	command := &cobra.Command{Use: "refresh", Short: "Refresh provider usage now", RunE: func(cmd *cobra.Command, args []string) error {
 		return printStatus(cmd.Context(), service, cmd.OutOrStdout(), providerID, jsonOutput, true)
 	}}
-	command.Flags().StringVarP(&providerID, "provider", "p", "", "provider to refresh: codex or kimi")
+	command.Flags().StringVarP(&providerID, "provider", "p", "", "provider to refresh: codex, kimi or opencodego")
 	command.Flags().BoolVar(&jsonOutput, "json", false, "print versioned JSON")
 	return command
 }
@@ -75,7 +75,7 @@ func printStatus(ctx context.Context, service *app.Service, output io.Writer, pr
 	results := map[string]app.Result{}
 	if providerID != "" {
 		if service.Provider(providerID) == nil {
-			return fmt.Errorf("unknown provider %q (want codex or kimi)", providerID)
+			return fmt.Errorf("unknown provider %q (want codex, kimi or opencodego)", providerID)
 		}
 		results[providerID] = service.Fetch(ctx, providerID, force)
 	} else {
@@ -86,7 +86,7 @@ func printStatus(ctx context.Context, service *app.Service, output io.Writer, pr
 		}
 	}
 	if len(results) == 0 {
-		return fmt.Errorf("no providers configured; run `codex login` or set KIMI_API_KEY")
+		return fmt.Errorf("no providers configured; run `codex login`, set KIMI_API_KEY, or set OPENCODE_SESSION_COOKIE")
 	}
 
 	report := model.Report{SchemaVersion: model.SchemaVersion, GeneratedAt: time.Now().UTC(), Providers: []model.Snapshot{}, Errors: []model.ProviderError{}}

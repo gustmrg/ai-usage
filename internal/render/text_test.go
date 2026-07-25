@@ -59,6 +59,10 @@ func TestSnapshotSeparatesKimiWindowsAndHidesCodexCredits(t *testing.T) {
 	if !strings.Contains(kimiOutput, "% left\n\nWeekly") {
 		t.Fatalf("Kimi windows are not separated: %q", kimiOutput)
 	}
+	opencodegoOutput := Snapshot(model.Snapshot{Provider: "opencodego", CollectedAt: now, Windows: windows}, 50, now)
+	if !strings.Contains(opencodegoOutput, "% left\n\nWeekly") {
+		t.Fatalf("OpenCode Go windows are not separated: %q", opencodegoOutput)
+	}
 	codexOutput := Snapshot(model.Snapshot{
 		Provider:    "codex",
 		CollectedAt: now,

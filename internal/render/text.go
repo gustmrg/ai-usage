@@ -21,7 +21,7 @@ func Snapshot(snapshot model.Snapshot, width int, now time.Time) string {
 	fmt.Fprintln(&output, title)
 	fmt.Fprintln(&output)
 	for index, window := range snapshot.Windows {
-		if snapshot.Provider == "kimi" && index > 0 {
+		if (snapshot.Provider == "kimi" || snapshot.Provider == "opencodego") && index > 0 {
 			fmt.Fprintln(&output)
 		}
 		remainingPct := 0.0

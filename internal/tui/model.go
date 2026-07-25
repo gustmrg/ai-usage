@@ -181,7 +181,7 @@ func (m *Model) render() string {
 	contentWidth := width - 4
 	var body string
 	if len(m.providers) == 0 {
-		body = errorStyle.Render("No providers configured") + "\n\n" + mutedStyle.Render("Run `codex login` or set KIMI_API_KEY, then restart ai-usage.")
+		body = errorStyle.Render("No providers configured") + "\n\n" + mutedStyle.Render("Run `codex login`, set KIMI_API_KEY, or set OPENCODE_SESSION_COOKIE, then restart ai-usage.")
 	} else {
 		state := m.providers[m.selected]
 		body = m.renderProvider(state, contentWidth)
