@@ -1,0 +1,7 @@
+/ai-usage
+/dist/
+.DS_Store
+
+# This source package must override a common global `cache/` ignore rule.
+!/internal/cache/
+!/internal/cache/**
