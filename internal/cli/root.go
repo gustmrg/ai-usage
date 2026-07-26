@@ -79,11 +79,7 @@ func printStatus(ctx context.Context, service *app.Service, output io.Writer, pr
 		}
 		results[providerID] = service.Fetch(ctx, providerID, force)
 	} else {
-		for _, p := range service.Providers() {
-			if p.Detect().Available {
-				results[p.ID()] = service.Fetch(ctx, p.ID(), force)
-			}
-		}
+		results = service.FetchAll(ctx, force)
 	}
 	if len(results) == 0 {
 		return fmt.Errorf("no providers configured; run `codex login`, set KIMI_API_KEY, or set OPENCODE_AUTH_COOKIE")

@@ -51,3 +51,56 @@ func TestStatusRejectsUnknownProvider(t *testing.T) {
 		t.Fatal("status accepted an unknown provider")
 	}
 }
+
+type blockingCLIProvider struct {
+	id      string
+	started chan<- string
+	release <-chan struct{}
+}
+
+func (p blockingCLIProvider) ID() string                { return p.id }
+func (p blockingCLIProvider) DisplayName() string       { return p.id }
+func (p blockingCLIProvider) CacheKey() (string, error) { return p.id, nil }
+func (p blockingCLIProvider) Detect() provider.Detection {
+	return provider.Detection{Available: true}
+}
+func (p blockingCLIProvider) Fetch(context.Context, string) (model.Snapshot, error) {
+	p.started <- p.id
+	<-p.release
+	return model.Snapshot{CollectedAt: time.Now().UTC()}, nil
+}
+
+func TestStatusFetchesProvidersConcurrentlyAndSortsOutput(t *testing.T) {
+	started := make(chan string, 2)
+	release := make(chan struct{})
+	service := app.NewService(
+		cache.At(t.TempDir()),
+		blockingCLIProvider{id: "zeta", started: started, release: release},
+		blockingCLIProvider{id: "alpha", started: started, release: release},
+	)
+	var stdout bytes.Buffer
+	command := New(service, &stdout, &bytes.Buffer{})
+	command.SetArgs([]string{"status", "--json"})
+
+	done := make(chan error, 1)
+	go func() { done <- command.Execute() }()
+	for range 2 {
+		select {
+		case <-started:
+		case <-time.After(time.Second):
+			t.Fatal("providers did not start concurrently")
+		}
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	var report model.Report
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Providers) != 2 || report.Providers[0].Provider != "alpha" || report.Providers[1].Provider != "zeta" {
+		t.Fatalf("providers = %#v, want alpha then zeta", report.Providers)
+	}
+}

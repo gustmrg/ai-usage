@@ -123,6 +123,9 @@ func (s *Service) FetchAll(ctx context.Context, force bool) map[string]Result {
 	var wg sync.WaitGroup
 	for _, p := range s.providers {
 		p := p
+		if !p.Detect().Available {
+			continue
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
